@@ -4885,15 +4885,32 @@
 
   // ---- animation engine ----
   // tracks: bone -> {rot:[[t,x,y,z]...], pos:[[t,x,y,z]...]} — values are OFFSETS from rest pose
-  const FINGERS = [];
-  for (const s of ['l','r']) for (const f of ['Thumb','Index','Mid','Ring','Pinky'])
-    for (let i = 1; i <= 3; i++) FINGERS.push(s + f + i);
-  function grip(dur, curl, sides){
+  // Natural finger curl: rolls from base to tip (increasing per segment),
+  // thumb curls less, slight per-finger stagger; optional pulseTimes tighten the grip.
+  function grip(dur, curl, sides, pulseTimes){
     const o = {};
-    const t1 = dur * 0.22, t2 = dur * 0.9;
-    for (const f of FINGERS){
-      if (sides && !sides.includes(f[0])) continue;
-      o[f] = {rot: [[0,0,0,0],[t1,curl,0,0],[t2,curl,0,0],[dur,0,0,0]]};
+    const t1 = dur*0.22, t2 = dur*0.9;
+    const fingers = [
+      ['Index', 1.0, 0.0], ['Mid', 1.08, 0.03], ['Ring', 0.95, 0.06], ['Pinky', 0.8, 0.09],
+    ];
+    const segMul = [0.55, 0.85, 1.0];
+    const thumbMul = [0.4, 0.6, 0.7];
+    const addFinger = (side, name, scale, delay, isThumb) => {
+      if (sides && !sides.includes(side)) return;
+      const mul = isThumb ? thumbMul : segMul;
+      for (let i = 1; i <= 3; i++){
+        const c = curl * scale * mul[i-1];
+        const keys = [[0,0,0,0],[t1+delay,c,0,0]];
+        if (pulseTimes) for (const pt of pulseTimes)
+          keys.push([pt-0.28,c,0,0],[pt,c*1.22,0,0]);
+        keys.push([t2+delay,c,0,0],[dur,0,0,0]);
+        keys.sort((a,b) => a[0]-b[0]);
+        o[side+name+i] = {rot: keys};
+      }
+    };
+    for (const s of ['l','r']){
+      for (const [f, scale, delay] of fingers) addFinger(s, f, scale, delay, false);
+      addFinger(s, 'Thumb', 0.9, 0.02, true);
     }
     return o;
   }
@@ -4911,7 +4928,7 @@
         'abdomenUpper': {rot: [[0,0,0,0],[1.2,-0.06,0,0],[2.0,-0.1,0,0],[2.8,-0.06,0,0],[3.6,-0.1,0,0],[4.6,-0.06,0,0],[5.2,0,0,0]]},
         'lThighBend': {rot: [[0,0,0,0],[1.2,0,0,-0.3],[4.6,0,0,-0.3],[5.2,0,0,0]]},
         'rThighBend': {rot: [[0,0,0,0],[1.2,0,0,0.3],[4.6,0,0,0.3],[5.2,0,0,0]]},
-      }, grip(5.2, 0.55)),
+      }, grip(5.2, 0.55, null, [1.75, 2.55, 3.35, 4.15])),
       impulses: [
         {t: 1.75, side: 'both', dv: -4.2}, {t: 2.55, side: 'both', dv: -4.2},
         {t: 3.35, side: 'both', dv: -4.2}, {t: 4.15, side: 'both', dv: -3.2},
