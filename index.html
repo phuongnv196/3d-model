@@ -4841,16 +4841,16 @@
   const PRESETS = {
     'Nằm ngửa': {},
     'Dang chân': {
-      'lThighBend': [0, 0, 0.5], 'rThighBend': [0, 0, -0.5],
+      'lThighBend': [0, 0, -0.5], 'rThighBend': [0, 0, 0.5],
       'lShin': [0.3, 0, 0], 'rShin': [0.3, 0, 0],
     },
     'Co chân': {
-      'lThighBend': [-1.1, 0, 0.25], 'rThighBend': [-1.1, 0, -0.25],
+      'lThighBend': [-1.1, 0, -0.25], 'rThighBend': [-1.1, 0, 0.25],
       'lShin': [1.4, 0, 0], 'rShin': [1.4, 0, 0],
     },
     'Nghiêng người': {
       'pelvis': [0, 0, 0.5], 'spine1': [0, 0, 0.3],
-      'lThighBend': [-0.4, 0, 0.3], 'rThighBend': [0.2, 0, -0.2],
+      'lThighBend': [-0.4, 0, -0.3], 'rThighBend': [0.2, 0, 0.2],
       'lShin': [0.8, 0, 0], 'rShin': [0.3, 0, 0],
     },
     'Tay lên đầu': {
@@ -4860,7 +4860,7 @@
     'Ưỡn người': {
       'spine1': [-0.35, 0, 0], 'spine2': [-0.3, 0, 0],
       'head': [-0.25, 0, 0],
-      'lThighBend': [0.3, 0, 0.2], 'rThighBend': [0.3, 0, -0.2],
+      'lThighBend': [0.3, 0, -0.2], 'rThighBend': [0.3, 0, 0.2],
     },
   };
 
@@ -4887,10 +4887,12 @@
     }
     // Leg sliders — trái/phải theo hướng nhìn trên màn hình
     // (nằm đối diện camera nên bên trái màn hình = xương r* của model)
-    addSlider('sliders-legs', 'Dang chân trái', -1.2, 0, 0.01, 0,
+    // Lưu ý: trục z của 2 xương đùi song song nhau (không mirrored):
+    //   chân trái màn hình (rThigh) dang ra = +z, chân phải màn hình (lThigh) dang ra = -z
+    addSlider('sliders-legs', 'Dang chân trái', 0, 1.2, 0.01, 0,
       v => setBone('rThighBend', bones['rThighBend']?.rotation.x||0, 0, v));
     addSlider('sliders-legs', 'Dang chân phải', 0, 1.2, 0.01, 0,
-      v => setBone('lThighBend', bones['lThighBend']?.rotation.x||0, 0, v));
+      v => setBone('lThighBend', bones['lThighBend']?.rotation.x||0, 0, -v));
     addSlider('sliders-legs', 'Co gối trái', 0, 2.2, 0.01, 0, v => setBone('rShin', v, 0, 0));
     addSlider('sliders-legs', 'Co gối phải', 0, 2.2, 0.01, 0, v => setBone('lShin', v, 0, 0));
     addSlider('sliders-legs', 'Đùi trái lên/xuống', -1.5, 1.0, 0.01, 0,
