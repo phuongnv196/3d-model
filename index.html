@@ -41,6 +41,8 @@
   <h3>📷 Tư thế mẫu</h3>
   <div id="presets"></div>
   <p style="font-size:11px;color:#8a7a68;margin:6px 0 2px">Trái / phải tính theo hướng nhìn trên màn hình.</p>
+  <h3>🎬 Animation</h3>
+  <div id="anims"></div>
   <h3>🦵 Chân</h3>
   <div id="sliders-legs"></div>
   <h3>💪 Tay</h3>
@@ -4833,6 +4835,8 @@
   }
 
   function resetAll(){
+    animState = null;
+    document.querySelectorAll('#anims .preset').forEach(x => x.classList.remove('active'));
     sliders.forEach(s => { s.inp.value = s.def; s.fn(s.def); });
     document.querySelectorAll('.preset').forEach(b => b.classList.remove('active'));
   }
@@ -4849,22 +4853,24 @@
       'lShin': [1.4, 0, 0], 'rShin': [1.4, 0, 0],
     },
     'Nghiêng người': {
-      'pelvis': [0, 0, 0.5], 'spine1': [0, 0, 0.3],
+      'pelvis': [0, 0, 0.5], 'chestLower': [0, 0, 0.3],
       'lThighBend': [-0.4, 0, -0.3], 'rThighBend': [0.2, 0, 0.2],
       'lShin': [0.8, 0, 0], 'rShin': [0.3, 0, 0],
     },
     'Tay lên đầu': {
       'lShldrBend': [0, 0, 2.6], 'rShldrBend': [0, 0, -2.6],
-      'lForeArmBend': [0, 0, 0.5], 'rForeArmBend': [0, 0, -0.5],
+      'lForearmBend': [-0.5, 0, 0], 'rForearmBend': [0.5, 0, 0],
     },
     'Ưỡn người': {
-      'spine1': [-0.35, 0, 0], 'spine2': [-0.3, 0, 0],
-      'head': [-0.25, 0, 0],
+      'abdomenUpper': [-0.35, 0, 0], 'chestLower': [-0.3, 0, 0],
+      'Head_0': [-0.25, 0, 0],
       'lThighBend': [0.3, 0, -0.2], 'rThighBend': [0.3, 0, 0.2],
     },
   };
 
   function applyPreset(name){
+    animState = null;
+    document.querySelectorAll('#anims .preset').forEach(x => x.classList.remove('active'));
     resetAll();
     const p = PRESETS[name];
     for(const bn in p){
@@ -4877,6 +4883,253 @@
     });
   }
 
+  // ---- animation engine ----
+  // tracks: bone -> {rot:[[t,x,y,z]...], pos:[[t,x,y,z]...]} — values are OFFSETS from rest pose
+  const FINGERS = [];
+  for (const s of ['l','r']) for (const f of ['Thumb','Index','Mid','Ring','Pinky'])
+    for (let i = 1; i <= 3; i++) FINGERS.push(s + f + i);
+  function grip(dur, curl, sides){
+    const o = {};
+    const t1 = dur * 0.22, t2 = dur * 0.9;
+    for (const f of FINGERS){
+      if (sides && !sides.includes(f[0])) continue;
+      o[f] = {rot: [[0,0,0,0],[t1,curl,0,0],[t2,curl,0,0],[dur,0,0,0]]};
+    }
+    return o;
+  }
+
+  const CLIPS = {
+    'Xoa bóp ngực': {
+      dur: 5.2,
+      tracks: Object.assign({
+        'lShldrBend': {rot: [[0,0,0,0],[1.2,-0.4,0,-0.2],[1.7,-0.34,0,-0.2],[2.3,-0.46,0,-0.2],[2.9,-0.34,0,-0.2],[3.5,-0.46,0,-0.2],[4.1,-0.34,0,-0.2],[4.6,-0.4,0,-0.2],[5.2,0,0,0]]},
+        'rShldrBend': {rot: [[0,0,0,0],[1.2,0.4,0,-0.1],[1.7,0.34,0,-0.1],[2.3,0.46,0,-0.1],[2.9,0.34,0,-0.1],[3.5,0.46,0,-0.1],[4.1,0.34,0,-0.1],[4.6,0.4,0,-0.1],[5.2,0,0,0]]},
+        'lForearmBend': {rot: [[0,0,0,0],[1.2,-2.2,0,0],[4.6,-2.2,0,0],[5.2,0,0,0]]},
+        'rForearmBend': {rot: [[0,0,0,0],[1.2,2.2,0,0],[4.6,2.2,0,0],[5.2,0,0,0]]},
+        'Head_0': {rot: [[0,0,0,0],[1.2,-0.18,0,0],[2.0,-0.3,0.05,0],[2.8,-0.18,0,0],[3.6,-0.3,-0.05,0],[4.6,-0.18,0,0],[5.2,0,0,0]]},
+        'chestLower': {rot: [[0,0,0,0],[1.2,-0.08,0,0],[2.0,-0.14,0,0],[2.8,-0.08,0,0],[3.6,-0.14,0,0],[4.6,-0.08,0,0],[5.2,0,0,0]]},
+        'abdomenUpper': {rot: [[0,0,0,0],[1.2,-0.06,0,0],[2.0,-0.1,0,0],[2.8,-0.06,0,0],[3.6,-0.1,0,0],[4.6,-0.06,0,0],[5.2,0,0,0]]},
+        'lThighBend': {rot: [[0,0,0,0],[1.2,0,0,-0.3],[4.6,0,0,-0.3],[5.2,0,0,0]]},
+        'rThighBend': {rot: [[0,0,0,0],[1.2,0,0,0.3],[4.6,0,0,0.3],[5.2,0,0,0]]},
+      }, grip(5.2, 0.55)),
+      impulses: [
+        {t: 1.75, side: 'both', dv: -4.2}, {t: 2.55, side: 'both', dv: -4.2},
+        {t: 3.35, side: 'both', dv: -4.2}, {t: 4.15, side: 'both', dv: -3.2},
+      ],
+    },
+    'Vuốt ve đùi': {
+      dur: 6.0,
+      tracks: Object.assign({
+        'rShldrBend': {rot: [[0,0,0,0],[1.2,0.8,0,-0.1],[2.2,0.95,0,-0.1],[3.2,0.62,0,-0.1],[4.2,0.95,0,-0.1],[5.2,0.62,0,-0.1],[5.7,0.8,0,-0.1],[6.0,0,0,0]]},
+        'rForearmBend': {rot: [[0,0,0,0],[1.2,0.15,0,0],[5.7,0.15,0,0],[6.0,0,0,0]]},
+        'Head_0': {rot: [[0,0,0,0],[1.5,0,0.4,0],[5.5,0,0.4,0],[6.0,0,0,0]]},
+        'lThighBend': {rot: [[0,0,0,0],[1.2,0,0,-0.35],[5.7,0,0,-0.35],[6.0,0,0,0]]},
+        'rThighBend': {rot: [[0,0,0,0],[1.2,0,0,0.35],[5.7,0,0,0.35],[6.0,0,0,0]]},
+        'chestLower': {rot: [[0,0,0,0],[1.2,-0.06,0,0],[5.7,-0.06,0,0],[6.0,0,0,0]]},
+      }, grip(6.0, 0.3, ['r'])),
+      impulses: [],
+    },
+    'Nhún ưỡn': {
+      dur: 2.4,
+      tracks: {
+        'pelvis': {pos: [[0,0,0,0],[0.3,0,0.055,0],[0.6,0,0,0],[0.9,0,0.055,0],[1.2,0,0,0],[1.5,0,0.055,0],[1.8,0,0,0],[2.1,0,0.055,0],[2.4,0,0,0]]},
+        'abdomenUpper': {rot: [[0,0,0,0],[0.3,-0.14,0,0],[0.6,0,0,0],[0.9,-0.14,0,0],[1.2,0,0,0],[1.5,-0.14,0,0],[1.8,0,0,0],[2.1,-0.14,0,0],[2.4,0,0,0]]},
+        'chestLower': {rot: [[0,0,0,0],[0.3,-0.1,0,0],[0.6,0,0,0],[0.9,-0.1,0,0],[1.2,0,0,0],[1.5,-0.1,0,0],[1.8,0,0,0],[2.1,-0.1,0,0],[2.4,0,0,0]]},
+        'Head_0': {rot: [[0,0,0,0],[0.3,-0.22,0,0],[0.6,-0.05,0,0],[0.9,-0.22,0,0],[1.2,-0.05,0,0],[1.5,-0.22,0,0],[1.8,-0.05,0,0],[2.1,-0.22,0,0],[2.4,0,0,0]]},
+        'lThighBend': {rot: [[0,0,0,0],[0.3,0.25,0,-0.25],[2.4,0,0,0]]},
+        'rThighBend': {rot: [[0,0,0,0],[0.3,0.25,0,0.25],[2.4,0,0,0]]},
+        'lShin': {rot: [[0,0,0,0],[0.3,0.4,0,0],[2.4,0,0,0]]},
+        'rShin': {rot: [[0,0,0,0],[0.3,0.4,0,0],[2.4,0,0,0]]},
+      },
+      impulses: [
+        {t: 0.32, side: 'both', dv: -2.2}, {t: 0.92, side: 'both', dv: -2.2},
+        {t: 1.52, side: 'both', dv: -2.2}, {t: 2.12, side: 'both', dv: -2.2},
+      ],
+    },
+    'Thở gấp': {
+      dur: 3.0,
+      tracks: Object.assign({
+        'chestLower': {rot: [[0,0,0,0],[0.375,-0.07,0,0],[0.75,0,0,0],[1.125,-0.07,0,0],[1.5,0,0,0],[1.875,-0.07,0,0],[2.25,0,0,0],[2.625,-0.07,0,0],[3.0,0,0,0]]},
+        'abdomenUpper': {rot: [[0,0,0,0],[0.375,-0.05,0,0],[0.75,0,0,0],[1.125,-0.05,0,0],[1.5,0,0,0],[1.875,-0.05,0,0],[2.25,0,0,0],[2.625,-0.05,0,0],[3.0,0,0,0]]},
+        'Head_0': {rot: [[0,0,0,0],[0.375,-0.28,0.08,0],[0.75,-0.12,0,0],[1.125,-0.28,-0.08,0],[1.5,-0.12,0,0],[1.875,-0.28,0.08,0],[2.25,-0.12,0,0],[2.625,-0.28,-0.08,0],[3.0,0,0,0]]},
+      }, grip(3.0, 0.5)),
+      impulses: [
+        {t: 0.375, side: 'both', dv: -1.6}, {t: 1.125, side: 'both', dv: -1.6},
+        {t: 1.875, side: 'both', dv: -1.6}, {t: 2.625, side: 'both', dv: -1.6},
+      ],
+    },
+  };
+
+  const restPose = {};
+  const restPos = {};
+  const pectScale0 = {l: [1,1,1], r: [1,1,1]};
+  let animState = null;
+  let simT = 0;
+
+  function sstep(u){ u = Math.max(0, Math.min(1, u)); return u*u*(3-2*u); }
+
+  function sampleTrack(keys, t){
+    if (t <= keys[0][0]) return keys[0].slice(1);
+    for (let i = 0; i < keys.length - 1; i++){
+      const a = keys[i], b = keys[i+1];
+      if (t <= b[0]){
+        const u = sstep((t - a[0]) / Math.max(1e-6, b[0] - a[0]));
+        return [a[1]+(b[1]-a[1])*u, a[2]+(b[2]-a[2])*u, a[3]+(b[3]-a[3])*u];
+      }
+    }
+    return keys[keys.length-1].slice(1);
+  }
+
+  function playAnim(name){
+    const clip = CLIPS[name];
+    if (!clip) return;
+    const prev = (animState && !animState.returning) ? CLIPS[animState.name] : null;
+    const from = {}, release = {};
+    for (const bn in clip.tracks){
+      const b = bones[bn];
+      if (b){
+        const r = restPose[bn] || [0,0,0];
+        from[bn] = {rot: [b.rotation.x-r[0], b.rotation.y-r[1], b.rotation.z-r[2]]};
+        if (clip.tracks[bn].pos){
+          const p = restPos[bn] || [0,0,0];
+          from[bn].pos = [b.position.x-p[0], b.position.y-p[1], b.position.z-p[2]];
+        }
+      }
+    }
+    if (prev){
+      for (const bn in prev.tracks){
+        if (clip.tracks[bn] || !bones[bn]) continue;
+        const r = restPose[bn] || [0,0,0];
+        release[bn] = {rot: [bones[bn].rotation.x-r[0], bones[bn].rotation.y-r[1], bones[bn].rotation.z-r[2]]};
+        if (prev.tracks[bn].pos){
+          const p = restPos[bn] || [0,0,0];
+          release[bn].pos = [bones[bn].position.x-p[0], bones[bn].position.y-p[1], bones[bn].position.z-p[2]];
+        }
+      }
+    }
+    animState = {name, start: simT, lastT: 0, from, release};
+    document.querySelectorAll('#anims .preset').forEach(x =>
+      x.classList.toggle('active', x.textContent === name));
+  }
+
+  function stopAnim(){
+    document.querySelectorAll('#anims .preset').forEach(x => x.classList.remove('active'));
+    if (!animState || animState.returning){ animState = null; return; }
+    const clip = CLIPS[animState.name];
+    const from = {};
+    for (const bn in clip.tracks){
+      const b = bones[bn];
+      if (!b) continue;
+      from[bn] = {rot: [b.rotation.x, b.rotation.y, b.rotation.z]};
+      if (clip.tracks[bn].pos) from[bn].pos = [b.position.x, b.position.y, b.position.z];
+    }
+    animState = {returning: true, start: simT, dur: 0.7, from};
+  }
+
+  function fireImpulses(clip, t0, t1){
+    for (const imp of (clip.impulses || [])){
+      if (imp.t > t0 && imp.t <= t1){
+        const sides = imp.side === 'both' ? ['l','r'] : [imp.side];
+        for (const s of sides) jig[s].v += imp.dv;
+      }
+    }
+  }
+
+  function updateAnim(){
+    if (!animState) return;
+    if (animState.returning){
+      const u = sstep((simT - animState.start) / animState.dur);
+      for (const bn in animState.from){
+        const b = bones[bn]; if (!b) continue;
+        const f = animState.from[bn];
+        const r0 = restPose[bn] || [0,0,0];
+        b.rotation.set(f.rot[0]+(r0[0]-f.rot[0])*u, f.rot[1]+(r0[1]-f.rot[1])*u, f.rot[2]+(r0[2]-f.rot[2])*u);
+        if (f.pos){
+          const p0 = restPos[bn] || [0,0,0];
+          b.position.set(f.pos[0]+(p0[0]-f.pos[0])*u, f.pos[1]+(p0[1]-f.pos[1])*u, f.pos[2]+(p0[2]-f.pos[2])*u);
+        }
+      }
+      if (u >= 1) animState = null;
+      return;
+    }
+    const clip = CLIPS[animState.name];
+    const dur = clip.dur;
+    let ct = (simT - animState.start) % dur;
+    if (ct < animState.lastT){ fireImpulses(clip, animState.lastT, dur); animState.lastT = 0; }
+    fireImpulses(clip, animState.lastT, ct);
+    animState.lastT = ct;
+    const blend = sstep((simT - animState.start) / 0.6);
+    const applyOff = (bn, off, isPos) => {
+      const b = bones[bn]; if (!b) return;
+      if (!isPos){
+        const r0 = restPose[bn] || [0,0,0];
+        b.rotation.set(r0[0]+off[0], r0[1]+off[1], r0[2]+off[2]);
+      } else {
+        const p0 = restPos[bn] || [0,0,0];
+        b.position.set(p0[0]+off[0], p0[1]+off[1], p0[2]+off[2]);
+      }
+    };
+    for (const bn in clip.tracks){
+      const b = bones[bn]; if (!b) continue;
+      const tr = clip.tracks[bn];
+      const r0 = restPose[bn] || [0,0,0];
+      if (tr.rot){
+        const tgt = sampleTrack(tr.rot, ct);
+        const fr = (animState.from[bn] && animState.from[bn].rot) || [0,0,0];
+        applyOff(bn, [
+          fr[0]+(tgt[0]-fr[0])*blend,
+          fr[1]+(tgt[1]-fr[1])*blend,
+          fr[2]+(tgt[2]-fr[2])*blend]);
+      }
+      if (tr.pos){
+        const tp = sampleTrack(tr.pos, ct);
+        const fp = (animState.from[bn] && animState.from[bn].pos) || [0,0,0];
+        applyOff(bn, [
+          fp[0]+(tp[0]-fp[0])*blend,
+          fp[1]+(tp[1]-fp[1])*blend,
+          fp[2]+(tp[2]-fp[2])*blend], true);
+      }
+    }
+    for (const bn in (animState.release || {})){
+      const rel = animState.release[bn];
+      applyOff(bn, [rel.rot[0]*(1-blend), rel.rot[1]*(1-blend), rel.rot[2]*(1-blend)]);
+      if (rel.pos) applyOff(bn, [rel.pos[0]*(1-blend), rel.pos[1]*(1-blend), rel.pos[2]*(1-blend)], true);
+    }
+  }
+
+  // ---- breast jiggle physics: damped spring per breast ----
+  // pectoral local Y points out of the chest (measured); scale Y = forward bounce
+  const jig = {l: {p: 0, v: 0}, r: {p: 0, v: 0}};
+  const _jv = new THREE.Vector3();
+  let _jyPrev = null, _jyvPrev = 0;
+  function updateJiggle(dt, t){
+    const chest = bones['chestLower'];
+    if (!chest) return;
+    chest.getWorldPosition(_jv);
+    let acc = 0;
+    if (_jyPrev !== null && dt > 1e-4){
+      const v = (_jv.y - _jyPrev) / dt;
+      acc = (v - _jyvPrev) / dt;
+      _jyvPrev = v;
+      if (acc > 25) acc = 25; else if (acc < -25) acc = -25;
+    }
+    _jyPrev = _jv.y;
+    const breathe = Math.sin(t*1.9)*0.5 + Math.sin(t*0.63+1.2)*0.35;
+    for (const s of ['l','r']){
+      const J = jig[s];
+      const F = -170*J.p - 7.0*J.v - 0.30*acc + breathe*2.0;
+      J.v += F*dt; J.p += J.v*dt;
+      if (J.p > 0.8) J.p = 0.8; else if (J.p < -0.55) J.p = -0.55;
+      const b = bones[s+'Pectoral'];
+      const s0 = pectScale0[s];
+      if (b){
+        const sy = 1 + 0.5*J.p;
+        const sxz = 1 - 0.13*J.p;
+        b.scale.set(s0[0]*sxz, s0[1]*sy, s0[2]*sxz);
+      }
+    }
+  }
+
   function buildUI(){
     const pc = document.getElementById('presets');
     for(const name in PRESETS){
@@ -4885,6 +5138,20 @@
       b.addEventListener('click', () => applyPreset(name));
       pc.appendChild(b);
     }
+    const ac = document.getElementById('anims');
+    for(const name in CLIPS){
+      const b = document.createElement('button');
+      b.className = 'preset'; b.textContent = name;
+      b.addEventListener('click', () => {
+        if (animState && animState.name === name) stopAnim();
+        else playAnim(name);
+      });
+      ac.appendChild(b);
+    }
+    const sb = document.createElement('button');
+    sb.className = 'preset'; sb.textContent = '⏹ Dừng animation';
+    sb.addEventListener('click', stopAnim);
+    ac.appendChild(sb);
     // Leg sliders — trái/phải theo hướng nhìn trên màn hình
     // (nằm đối diện camera nên bên trái màn hình = xương r* của model)
     // Lưu ý: trục z của 2 xương đùi song song nhau (không mirrored):
@@ -4906,18 +5173,18 @@
       v => setBone('lShldrBend', 0, 0, v));
     addSlider('sliders-arms', 'Tay trái lên', -2.5, 2.5, 0.01, 0,
       v => setBone('rShldrBend', v, 0, bones['rShldrBend']?.rotation.z||0));
-    addSlider('sliders-arms', 'Co khuỷu trái', -2.2, 0, 0.01, 0, v => setBone('rForeArmBend', 0, 0, v));
-    addSlider('sliders-arms', 'Co khuỷu phải', 0, 2.2, 0.01, 0, v => setBone('lForeArmBend', 0, 0, v));
+    addSlider('sliders-arms', 'Co khuỷu trái', -2.2, 0, 0.01, 0, v => setBone('rForearmBend', 0, 0, v));
+    addSlider('sliders-arms', 'Co khuỷu phải', 0, 2.2, 0.01, 0, v => setBone('lForearmBend', 0, 0, v));
     // Body sliders
     addSlider('sliders-body', 'Ưỡn lưng', -0.6, 0.6, 0.01, 0, v => {
-      setBone('spine1', v, 0, 0); setBone('spine2', v*0.8, 0, 0);
+      setBone('abdomenUpper', v, 0, 0); setBone('chestLower', v*0.8, 0, 0);
     });
     addSlider('sliders-body', 'Nghiêng eo', -0.6, 0.6, 0.01, 0, v => {
-      setBone('pelvis', 0, 0, v); setBone('spine1', bones['spine1']?.rotation.x||0, 0, v*0.6);
+      setBone('pelvis', 0, 0, v); setBone('chestLower', bones['chestLower']?.rotation.x||0, 0, v*0.6);
     });
-    addSlider('sliders-body', 'Ngửa/cúi đầu', -0.6, 0.6, 0.01, 0, v => setBone('head', v, 0, 0));
+    addSlider('sliders-body', 'Ngửa/cúi đầu', -0.6, 0.6, 0.01, 0, v => setBone('Head_0', v, 0, 0));
     addSlider('sliders-body', 'Quay đầu', -0.8, 0.8, 0.01, 0,
-      v => setBone('head', bones['head']?.rotation.x||0, v, 0));
+      v => setBone('Head_0', bones['Head_0']?.rotation.x||0, v, 0));
     const rb = document.createElement('button');
     rb.className = 'preset'; rb.textContent = '↺ Reset';
     rb.addEventListener('click', resetAll);
@@ -4942,14 +5209,28 @@
     scene.add(outer);
     modelRoot = gltf.scene;
     findBones(gltf.scene);
+    for (const n in bones){
+      const b = bones[n];
+      restPose[n] = [b.rotation.x, b.rotation.y, b.rotation.z];
+      restPos[n] = [b.position.x, b.position.y, b.position.z];
+    }
+    for (const s of ['l','r']){
+      const b = bones[s+'Pectoral'];
+      if (b) pectScale0[s] = [b.scale.x, b.scale.y, b.scale.z];
+    }
     buildUI();
     const s = makeLabel('Hani', '#c9748a');
     s.position.set(-0.95, 1.05, 0);
     scene.add(s);
   }, undefined, (err) => { console.error('GLB load failed', err); });
 
+  const clock = new THREE.Clock();
   function animate(){
     requestAnimationFrame(animate);
+    const dt = Math.min(clock.getDelta(), 0.05);
+    simT += dt;
+    updateAnim();
+    updateJiggle(dt, simT);
     controls.update();
     renderer.render(scene, camera);
   }
