@@ -4919,8 +4919,8 @@
     'Xoa bóp ngực': {
       dur: 5.2,
       tracks: Object.assign({
-        'lShldrBend': {rot: [[0,0,0,0],[1.2,-0.4,0,-0.2],[1.7,-0.34,0,-0.2],[2.3,-0.46,0,-0.2],[2.9,-0.34,0,-0.2],[3.5,-0.46,0,-0.2],[4.1,-0.34,0,-0.2],[4.6,-0.4,0,-0.2],[5.2,0,0,0]]},
-        'rShldrBend': {rot: [[0,0,0,0],[1.2,0.4,0,-0.1],[1.7,0.34,0,-0.1],[2.3,0.46,0,-0.1],[2.9,0.34,0,-0.1],[3.5,0.46,0,-0.1],[4.1,0.34,0,-0.1],[4.6,0.4,0,-0.1],[5.2,0,0,0]]},
+        'lShldrBend': {rot: [[0,0,0,0],[1.2,-0.4,0,-0.2],[1.7,-0.43,0,-0.12],[2.3,-0.4,0,-0.2],[2.9,-0.43,0,-0.12],[3.5,-0.4,0,-0.2],[4.1,-0.43,0,-0.12],[4.6,-0.4,0,-0.2],[5.2,0,0,0]]},
+        'rShldrBend': {rot: [[0,0,0,0],[1.2,0.4,0,-0.1],[1.7,0.43,0,-0.02],[2.3,0.4,0,-0.1],[2.9,0.43,0,-0.02],[3.5,0.4,0,-0.1],[4.1,0.43,0,-0.02],[4.6,0.4,0,-0.1],[5.2,0,0,0]]},
         'lForearmBend': {rot: [[0,0,0,0],[1.2,-2.2,0,0],[4.6,-2.2,0,0],[5.2,0,0,0]]},
         'rForearmBend': {rot: [[0,0,0,0],[1.2,2.2,0,0],[4.6,2.2,0,0],[5.2,0,0,0]]},
         'Head_0': {rot: [[0,0,0,0],[1.2,-0.18,0,0],[2.0,-0.3,0.05,0],[2.8,-0.18,0,0],[3.6,-0.3,-0.05,0],[4.6,-0.18,0,0],[5.2,0,0,0]]},
@@ -4928,10 +4928,10 @@
         'abdomenUpper': {rot: [[0,0,0,0],[1.2,-0.06,0,0],[2.0,-0.1,0,0],[2.8,-0.06,0,0],[3.6,-0.1,0,0],[4.6,-0.06,0,0],[5.2,0,0,0]]},
         'lThighBend': {rot: [[0,0,0,0],[1.2,0,0,-0.3],[4.6,0,0,-0.3],[5.2,0,0,0]]},
         'rThighBend': {rot: [[0,0,0,0],[1.2,0,0,0.3],[4.6,0,0,0.3],[5.2,0,0,0]]},
-      }, grip(5.2, 0.55, null, [1.75, 2.55, 3.35, 4.15])),
+      }, grip(5.2, 0.55, null, [1.7, 2.9, 4.1])),
       impulses: [
-        {t: 1.75, side: 'both', dv: -4.2}, {t: 2.55, side: 'both', dv: -4.2},
-        {t: 3.35, side: 'both', dv: -4.2}, {t: 4.15, side: 'both', dv: -3.2},
+        {t: 1.7, side: 'both', dv: -1.2}, {t: 2.9, side: 'both', dv: -1.2},
+        {t: 4.1, side: 'both', dv: -1.2},
       ],
     },
     'Vuốt ve đùi': {
@@ -5147,6 +5147,111 @@
     }
   }
 
+  // ---- Hand-chest collision: breast surface conforms around the hands ----
+  // GPU vertex dent (runs after skinning): any chest vertex inside a hand
+  // sphere is pushed out to the sphere surface -> the breast dents exactly
+  // where the hand touches, and the hand can never visibly penetrate.
+  const dentUniforms = {
+    uDentC: { value: [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()] },
+    uDentR: { value: [0.06, 0.045, 0.06, 0.045] },
+    uDentBones: { value: [-1, -1, -1, -1, -1, -1] },
+  };
+  let dentTorso = null;
+  let dentStrength = 1; // test hook: set 0 to disable
+  function dentOnBeforeCompile(shader){
+    Object.assign(shader.uniforms, dentUniforms);
+    // NOTE: do NOT index skinIndex[i]/skinWeight[i] with a loop var — SwiftShader
+    // miscompiles dynamic attribute indexing and corrupts other meshes. Unrolled.
+    shader.vertexShader = (
+      'uniform vec3 uDentC[4];\nuniform float uDentR[4];\nuniform float uDentBones[6];\n'
+    ) + shader.vertexShader.replace(
+      '#include <skinning_vertex>',
+      [
+        '#include <skinning_vertex>',
+        '{',
+        '  float chestW = 0.0;',
+        '  float bi0 = skinIndex.x; float bw0 = skinWeight.x;',
+        '  float bi1 = skinIndex.y; float bw1 = skinWeight.y;',
+        '  float bi2 = skinIndex.z; float bw2 = skinWeight.z;',
+        '  float bi3 = skinIndex.w; float bw3 = skinWeight.w;',
+        '  for (int j = 0; j < 6; j++) {',
+        '    if (abs(bi0 - uDentBones[j]) < 0.5) { chestW += bw0; break; }',
+        '  }',
+        '  for (int j = 0; j < 6; j++) {',
+        '    if (abs(bi1 - uDentBones[j]) < 0.5) { chestW += bw1; break; }',
+        '  }',
+        '  for (int j = 0; j < 6; j++) {',
+        '    if (abs(bi2 - uDentBones[j]) < 0.5) { chestW += bw2; break; }',
+        '  }',
+        '  for (int j = 0; j < 6; j++) {',
+        '    if (abs(bi3 - uDentBones[j]) < 0.5) { chestW += bw3; break; }',
+        '  }',
+        '  float dmask = smoothstep(0.25, 0.5, chestW);',
+        '  if (dmask > 0.002) {',
+        '    for (int h = 0; h < 4; h++) {',
+        '      vec3 toV = transformed - uDentC[h];',
+        '      float dh = length(toV);',
+        '      float pen = uDentR[h] - dh;',
+        '      if (pen > 0.0) {',
+        '        vec3 rdir = toV / max(dh, 1e-4);',
+        '        vec3 dir = normalize(mix(rdir, objectNormal, 1.0 - smoothstep(0.0, 0.03, dh)) + vec3(1e-6, 0.0, 0.0));',
+        '        transformed += dir * (pen * dmask);',
+        '      }',
+        '    }',
+        '  }',
+        '}',
+      ].join('\n')
+    );
+  }
+  function setupDent(){
+    // torso = skinned mesh with the most pectoral-weighted vertices
+    let best = 0;
+    modelRoot.traverse(o => {
+      if (!o.isSkinnedMesh) return;
+      const sk = o.geometry.attributes.skinIndex, sw = o.geometry.attributes.skinWeight;
+      const pi = [o.skeleton.bones.indexOf(bones['lPectoral']), o.skeleton.bones.indexOf(bones['rPectoral'])];
+      let n = 0;
+      for (let i = 0; i < sk.count; i++){
+        for (let k = 0; k < 4; k++){
+          const bi = k === 0 ? sk.getX(i) : k === 1 ? sk.getY(i) : k === 2 ? sk.getZ(i) : sk.getW(i);
+          const w = k === 0 ? sw.getX(i) : k === 1 ? sw.getY(i) : k === 2 ? sw.getZ(i) : sw.getW(i);
+          if ((bi === pi[0] || bi === pi[1]) && w > 0.3){ n++; break; }
+        }
+      }
+      if (n > best){ best = n; dentTorso = o; }
+    });
+    if (!dentTorso) return;
+    const idx = ['lPectoral', 'rPectoral', 'chestLower', 'chestUpper', 'abdomenUpper']
+      .map(n => dentTorso.skeleton.bones.indexOf(bones[n]));
+    for (let j = 0; j < 5; j++) dentUniforms.uDentBones.value[j] = idx[j];
+    // Dent applies ONLY to the torso mesh: uDentC is in torso-local space,
+    // so other meshes (hair, eyes...) must keep their stock shader.
+    dentTorso.material.onBeforeCompile = dentOnBeforeCompile;
+    dentTorso.material.customProgramCacheKey = () => 'dent-torso-v1';
+  }
+  const _dw = new THREE.Vector3(), _dw2 = new THREE.Vector3(), _dw3 = new THREE.Vector3();
+  function updateDent(){
+    if (!dentTorso) return;
+    dentTorso.updateWorldMatrix(true, false);
+    let h = 0;
+    for (const s of ['l', 'r']){
+      bones[s + 'Hand'].getWorldPosition(_dw);
+      _dw2.set(0, 0, 0);
+      for (const f of ['Index3', 'Mid3', 'Ring3']){
+        bones[s + f].getWorldPosition(_dw3);
+        _dw2.add(_dw3);
+      }
+      _dw2.multiplyScalar(1 / 3);
+      _dw3.copy(_dw).lerp(_dw2, 0.35);
+      dentTorso.worldToLocal(_dw3);
+      dentUniforms.uDentC.value[h].copy(_dw3);
+      dentUniforms.uDentR.value[h] = 0.06 * dentStrength; h++;
+      dentTorso.worldToLocal(_dw2);
+      dentUniforms.uDentC.value[h].copy(_dw2);
+      dentUniforms.uDentR.value[h] = 0.045 * dentStrength; h++;
+    }
+  }
+
   function buildUI(){
     const pc = document.getElementById('presets');
     for(const name in PRESETS){
@@ -5235,6 +5340,7 @@
       const b = bones[s+'Pectoral'];
       if (b) pectScale0[s] = [b.scale.x, b.scale.y, b.scale.z];
     }
+    setupDent();
     buildUI();
     const s = makeLabel('Hani', '#c9748a');
     s.position.set(-0.95, 1.05, 0);
@@ -5248,6 +5354,7 @@
     simT += dt;
     updateAnim();
     updateJiggle(dt, simT);
+    updateDent();
     controls.update();
     renderer.render(scene, camera);
   }
