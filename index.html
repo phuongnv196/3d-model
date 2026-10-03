@@ -5279,24 +5279,36 @@
     // Lưu ý: trục z của 2 xương đùi song song nhau (không mirrored):
     //   chân trái màn hình (rThigh) dang ra = +z, chân phải màn hình (lThigh) dang ra = -z
     addSlider('sliders-legs', 'Dang chân trái', 0, 1.2, 0.01, 0,
-      v => setBone('rThighBend', bones['rThighBend']?.rotation.x||0, 0, v));
+      v => setBone('rThighBend', bones['rThighBend']?.rotation.x||0, bones['rThighBend']?.rotation.y||0, v));
     addSlider('sliders-legs', 'Dang chân phải', 0, 1.2, 0.01, 0,
-      v => setBone('lThighBend', bones['lThighBend']?.rotation.x||0, 0, -v));
+      v => setBone('lThighBend', bones['lThighBend']?.rotation.x||0, bones['lThighBend']?.rotation.y||0, -v));
     addSlider('sliders-legs', 'Co gối trái', 0, 2.2, 0.01, 0, v => setBone('rShin', v, 0, 0));
     addSlider('sliders-legs', 'Co gối phải', 0, 2.2, 0.01, 0, v => setBone('lShin', v, 0, 0));
     addSlider('sliders-legs', 'Đùi trái lên/xuống', -1.5, 1.0, 0.01, 0,
-      v => setBone('rThighBend', v, 0, bones['rThighBend']?.rotation.z||0));
+      v => setBone('rThighBend', v, bones['rThighBend']?.rotation.y||0, bones['rThighBend']?.rotation.z||0));
     addSlider('sliders-legs', 'Đùi phải lên/xuống', -1.5, 1.0, 0.01, 0,
-      v => setBone('lThighBend', v, 0, bones['lThighBend']?.rotation.z||0));
+      v => setBone('lThighBend', v, bones['lThighBend']?.rotation.y||0, bones['lThighBend']?.rotation.z||0));
+    addSlider('sliders-legs', 'Đùi trái qua lại', -1.5, 1.5, 0.01, 0,
+      v => setBone('rThighBend', bones['rThighBend']?.rotation.x||0, v, bones['rThighBend']?.rotation.z||0));
+    addSlider('sliders-legs', 'Đùi phải qua lại', -1.5, 1.5, 0.01, 0,
+      v => setBone('lThighBend', bones['lThighBend']?.rotation.x||0, v, bones['lThighBend']?.rotation.z||0));
     // Arm sliders
-    addSlider('sliders-arms', 'Tay trái dang', -2.8, 0, 0.01, 0,
-      v => setBone('rShldrBend', 0, 0, v));
-    addSlider('sliders-arms', 'Tay phải dang', 0, 2.8, 0.01, 0,
-      v => setBone('lShldrBend', 0, 0, v));
-    addSlider('sliders-arms', 'Tay trái lên', -2.5, 2.5, 0.01, 0,
-      v => setBone('rShldrBend', v, 0, bones['rShldrBend']?.rotation.z||0));
-    addSlider('sliders-arms', 'Co khuỷu trái', -2.2, 0, 0.01, 0, v => setBone('rForearmBend', 0, 0, v));
-    addSlider('sliders-arms', 'Co khuỷu phải', 0, 2.2, 0.01, 0, v => setBone('lForearmBend', 0, 0, v));
+    // Arm sliders (180° = 3.14 rad; X=lên/xuống, Y=qua lại, Z=dang)
+    const sX = n => bones[n]?.rotation.x||0, sY = n => bones[n]?.rotation.y||0, sZ = n => bones[n]?.rotation.z||0;
+    addSlider('sliders-arms', 'Tay trái dang', -3.14, 0, 0.01, 0,
+      v => setBone('rShldrBend', sX('rShldrBend'), sY('rShldrBend'), v));
+    addSlider('sliders-arms', 'Tay phải dang', 0, 3.14, 0.01, 0,
+      v => setBone('lShldrBend', sX('lShldrBend'), sY('lShldrBend'), v));
+    addSlider('sliders-arms', 'Tay trái lên/xuống', -3.14, 3.14, 0.01, 0,
+      v => setBone('rShldrBend', v, sY('rShldrBend'), sZ('rShldrBend')));
+    addSlider('sliders-arms', 'Tay phải lên/xuống', -3.14, 3.14, 0.01, 0,
+      v => setBone('lShldrBend', v, sY('lShldrBend'), sZ('lShldrBend')));
+    addSlider('sliders-arms', 'Tay trái qua lại', -3.14, 3.14, 0.01, 0,
+      v => setBone('rShldrBend', sX('rShldrBend'), v, sZ('rShldrBend')));
+    addSlider('sliders-arms', 'Tay phải qua lại', -3.14, 3.14, 0.01, 0,
+      v => setBone('lShldrBend', sX('lShldrBend'), v, sZ('lShldrBend')));
+    addSlider('sliders-arms', 'Co khuỷu trái', -3.14, 0, 0.01, 0, v => setBone('rForearmBend', 0, 0, v));
+    addSlider('sliders-arms', 'Co khuỷu phải', 0, 3.14, 0.01, 0, v => setBone('lForearmBend', 0, 0, v));
     // Body sliders
     addSlider('sliders-body', 'Ưỡn lưng', -0.6, 0.6, 0.01, 0, v => {
       setBone('abdomenUpper', v, 0, 0); setBone('chestLower', v*0.8, 0, 0);
