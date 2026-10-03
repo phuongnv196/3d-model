@@ -53,6 +53,10 @@
   <div id="sliders-armR"></div>
   <h3>🧍 Thân & Đầu</h3>
   <div id="sliders-body"></div>
+  <h3>📋 Copy tư thế</h3>
+  <p style="font-size:11px;color:#8a7a68;margin:4px 0">Chỉnh các thanh trượt xong, bấm nút để copy số liệu khớp gửi cho em.</p>
+  <textarea id="poseOut" readonly rows="6" style="width:100%;font-size:10px;font-family:monospace;" placeholder="Số liệu khớp sẽ hiện ở đây..."></textarea>
+  <button id="copyPose" class="preset" style="margin-top:6px">📋 Copy số liệu</button>
 </div>
 <script>
 /**
@@ -4831,11 +4835,28 @@
     lab.textContent = label;
     const inp = document.createElement('input');
     inp.type = 'range'; inp.min = min; inp.max = max; inp.step = step; inp.value = val;
-    inp.addEventListener('input', () => fn(parseFloat(inp.value)));
+    inp.addEventListener('input', () => { fn(parseFloat(inp.value)); updatePoseText(); });
     div.appendChild(lab); div.appendChild(inp);
     document.getElementById(containerId).appendChild(div);
     sliders.push({inp, fn, def: val});
     return inp;
+  }
+  const POSE_BONES = ['rThighBend','lThighBend','rShin','lShin','rFoot','lFoot',
+    'rShldrBend','lShldrBend','rForearmBend','lForearmBend','rHand','lHand',
+    'abdomenUpper','chestLower','pelvis','Head_0'];
+  function updatePoseText(){
+    const ta = document.getElementById('poseOut');
+    if (!ta || !bones) return;
+    const o = {};
+    for (const n of POSE_BONES){
+      const b = bones[n]; if (!b) continue;
+      const r = restPose[n] || [0,0,0];
+      const dx = +(b.rotation.x - r[0]).toFixed(3),
+            dy = +(b.rotation.y - r[1]).toFixed(3),
+            dz = +(b.rotation.z - r[2]).toFixed(3);
+      if (dx || dy || dz) o[n] = [dx, dy, dz];
+    }
+    ta.value = JSON.stringify(o);
   }
   function subGroup(containerId, title){
     const h = document.createElement('div');
@@ -5369,8 +5390,20 @@
       v => setBone('Head_0', bones['Head_0']?.rotation.x||0, v, 0));
     const rb = document.createElement('button');
     rb.className = 'preset'; rb.textContent = '↺ Reset';
-    rb.addEventListener('click', resetAll);
+    rb.addEventListener('click', () => { resetAll(); updatePoseText(); });
     document.getElementById('sliders-body').appendChild(rb);
+    // Copy pose button
+    document.getElementById('copyPose').addEventListener('click', () => {
+      updatePoseText();
+      const ta = document.getElementById('poseOut');
+      ta.select();
+      try { document.execCommand('copy'); } catch(e){}
+      if (navigator.clipboard) navigator.clipboard.writeText(ta.value).catch(()=>{});
+      const btn = document.getElementById('copyPose');
+      const old = btn.textContent;
+      btn.textContent = '✅ Đã copy!';
+      setTimeout(() => btn.textContent = old, 1500);
+    });
   }
 
   document.getElementById('toggle').addEventListener('click', () => {
