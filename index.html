@@ -4833,6 +4833,12 @@
     sliders.push({inp, fn, def: val});
     return inp;
   }
+  function subGroup(containerId, title){
+    const h = document.createElement('div');
+    h.textContent = title;
+    h.style.cssText = 'margin:10px 0 2px;font-size:12px;font-weight:700;color:#b08355;border-bottom:1px solid #e8d8c0;padding-bottom:2px;';
+    document.getElementById(containerId).appendChild(h);
+  }
 
   function resetAll(){
     animState = null;
@@ -5279,12 +5285,11 @@
     // Lưu ý: trục z của 2 xương đùi song song nhau (không mirrored):
     //   chân trái màn hình (rThigh) dang ra = +z, chân phải màn hình (lThigh) dang ra = -z
     const sX = n => bones[n]?.rotation.x||0, sY = n => bones[n]?.rotation.y||0, sZ = n => bones[n]?.rotation.z||0;
+    subGroup('sliders-legs', '🦵 Đùi');
     addSlider('sliders-legs', 'Dang chân trái', 0, 1.2, 0.01, 0,
       v => setBone('rThighBend', sX('rThighBend'), sY('rThighBend'), v));
     addSlider('sliders-legs', 'Dang chân phải', 0, 1.2, 0.01, 0,
       v => setBone('lThighBend', sX('lThighBend'), sY('lThighBend'), -v));
-    addSlider('sliders-legs', 'Co gối trái', 0, 2.2, 0.01, 0, v => setBone('rShin', v, 0, 0));
-    addSlider('sliders-legs', 'Co gối phải', 0, 2.2, 0.01, 0, v => setBone('lShin', v, 0, 0));
     addSlider('sliders-legs', 'Đùi trái lên/xuống', -1.5, 1.0, 0.01, 0,
       v => setBone('rThighBend', v, sY('rThighBend'), sZ('rThighBend')));
     addSlider('sliders-legs', 'Đùi phải lên/xuống', -1.5, 1.0, 0.01, 0,
@@ -5293,7 +5298,10 @@
       v => setBone('rThighBend', sX('rThighBend'), v, sZ('rThighBend')));
     addSlider('sliders-legs', 'Đùi phải qua lại', -1.5, 1.5, 0.01, 0,
       v => setBone('lThighBend', sX('lThighBend'), v, sZ('lThighBend')));
-    // Ankle sliders (cổ chân) — 3 trục, 180°
+    subGroup('sliders-legs', '🦵 Gối');
+    addSlider('sliders-legs', 'Co gối trái', 0, 2.2, 0.01, 0, v => setBone('rShin', v, 0, 0));
+    addSlider('sliders-legs', 'Co gối phải', 0, 2.2, 0.01, 0, v => setBone('lShin', v, 0, 0));
+    subGroup('sliders-legs', '🦵 Cổ chân');
     addSlider('sliders-legs', 'Cổ chân trái lên/xuống', -3.14, 3.14, 0.01, 0,
       v => setBone('rFoot', v, sY('rFoot'), sZ('rFoot')));
     addSlider('sliders-legs', 'Cổ chân phải lên/xuống', -3.14, 3.14, 0.01, 0,
@@ -5308,6 +5316,7 @@
       v => setBone('lFoot', sX('lFoot'), sY('lFoot'), v));
     // Arm sliders
     // Arm sliders (180° = 3.14 rad; X=lên/xuống, Y=qua lại, Z=dang)
+    subGroup('sliders-arms', '💪 Vai');
     addSlider('sliders-arms', 'Tay trái dang', -3.14, 0, 0.01, 0,
       v => setBone('rShldrBend', sX('rShldrBend'), sY('rShldrBend'), v));
     addSlider('sliders-arms', 'Tay phải dang', 0, 3.14, 0.01, 0,
@@ -5320,8 +5329,10 @@
       v => setBone('rShldrBend', sX('rShldrBend'), v, sZ('rShldrBend')));
     addSlider('sliders-arms', 'Tay phải qua lại', -3.14, 3.14, 0.01, 0,
       v => setBone('lShldrBend', sX('lShldrBend'), v, sZ('lShldrBend')));
+    subGroup('sliders-arms', '💪 Khuỷu');
     addSlider('sliders-arms', 'Co khuỷu trái', -3.14, 0, 0.01, 0, v => setBone('rForearmBend', 0, 0, v));
     addSlider('sliders-arms', 'Co khuỷu phải', 0, 3.14, 0.01, 0, v => setBone('lForearmBend', 0, 0, v));
+    subGroup('sliders-arms', '💪 Cổ tay');
     // Wrist sliders (cổ tay) — 3 trục, 180°
     addSlider('sliders-arms', 'Cổ tay trái lên/xuống', -3.14, 3.14, 0.01, 0,
       v => setBone('rHand', v, sY('rHand'), sZ('rHand')));
@@ -5336,12 +5347,14 @@
     addSlider('sliders-arms', 'Cổ tay phải nghiêng', -3.14, 3.14, 0.01, 0,
       v => setBone('lHand', sX('lHand'), sY('lHand'), v));
     // Body sliders
+    subGroup('sliders-body', '🧍 Eo & Lưng');
     addSlider('sliders-body', 'Ưỡn lưng', -0.6, 0.6, 0.01, 0, v => {
       setBone('abdomenUpper', v, 0, 0); setBone('chestLower', v*0.8, 0, 0);
     });
     addSlider('sliders-body', 'Nghiêng eo', -0.6, 0.6, 0.01, 0, v => {
       setBone('pelvis', 0, 0, v); setBone('chestLower', bones['chestLower']?.rotation.x||0, 0, v*0.6);
     });
+    subGroup('sliders-body', '🧍 Đầu');
     addSlider('sliders-body', 'Ngửa/cúi đầu', -0.6, 0.6, 0.01, 0, v => setBone('Head_0', v, 0, 0));
     addSlider('sliders-body', 'Quay đầu', -0.8, 0.8, 0.01, 0,
       v => setBone('Head_0', bones['Head_0']?.rotation.x||0, v, 0));
