@@ -66,11 +66,11 @@
   </div>
   <div style="margin-top:8px;font-size:12px">
     <div>Lush vào/ra: <span id="lushYVal">0</span>mm</div>
-    <input type="range" id="lushY" min="-30" max="30" step="1" value="0" style="width:100%">
+    <input type="range" id="lushY" min="-60" max="60" step="1" value="0" style="width:100%">
     <div>Lush lên/xuống: <span id="lushXVal">0</span>mm</div>
-    <input type="range" id="lushX" min="-30" max="30" step="1" value="0" style="width:100%">
+    <input type="range" id="lushX" min="-60" max="60" step="1" value="0" style="width:100%">
     <div>Lush trái/phải: <span id="lushZVal">0</span>mm</div>
-    <input type="range" id="lushZ" min="-20" max="20" step="1" value="0" style="width:100%">
+    <input type="range" id="lushZ" min="-60" max="60" step="1" value="0" style="width:100%">
   </div>
   <textarea id="lushOut" readonly rows="2" style="width:100%;font-size:10px;font-family:monospace;margin-top:6px" placeholder='Vị trí lush sẽ hiện ở đây...'></textarea>
   <button id="copyLush" class="preset" style="margin-top:4px">📋 Copy vị trí Lush</button>
@@ -5103,8 +5103,8 @@
     const bx = lushBasePos.x + lushOffset.x;
     const by = lushBasePos.y + lushOffset.y;
     const bz = lushBasePos.z + lushOffset.z;
-    // Insertion depth: 0 (at base) to 1 (3cm deeper). -Y = into body.
-    const insertion = Math.max(0, Math.min(1, -lushOffset.y / 0.03));
+    // Insertion depth: 0 (at base) to 1 (6cm deeper). -Y = into body.
+    const insertion = Math.max(0, Math.min(1, -lushOffset.y / 0.06));
     if (lushVibOn){
       const a = 0.0012 * lushVibLevel;
       if (lushObj && lushObj.visible){
