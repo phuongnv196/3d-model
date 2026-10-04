@@ -57,6 +57,8 @@
   <p style="font-size:11px;color:#8a7a68;margin:4px 0">Chỉnh các thanh trượt xong, bấm nút để copy số liệu khớp gửi cho em.</p>
   <textarea id="poseOut" readonly rows="6" style="width:100%;font-size:10px;font-family:monospace;" placeholder="Số liệu khớp sẽ hiện ở đây..."></textarea>
   <button id="copyPose" class="preset" style="margin-top:6px">📋 Copy số liệu</button>
+  <h3>🦩 Phụ kiện</h3>
+  <button id="toggleLush" class="preset" style="margin-top:4px">🦩 Ẩn/hiện Lush</button>
 </div>
 <script>
 /**
@@ -5285,6 +5287,61 @@
     }
   }
 
+  function createLush(){
+    // Procedural Lush-like device: egg bulb + curved tail, hot pink
+    const g = new THREE.Group();
+    const pink = new THREE.MeshStandardMaterial({color: 0xE91E63, roughness: 0.35, metalness: 0.05});
+    // Bulb: egg shape (wider at bottom)
+    const bulbGeo = new THREE.SphereGeometry(0.019, 32, 32);
+    bulbGeo.scale(1, 1.35, 0.95);
+    const bulb = new THREE.Mesh(bulbGeo, pink);
+    bulb.position.y = 0;
+    g.add(bulb);
+    // Tail: curved tube going up and forward
+    const curve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(0, 0.024, 0),
+      new THREE.Vector3(0, 0.045, 0.004),
+      new THREE.Vector3(0, 0.070, 0.015),
+      new THREE.Vector3(0, 0.095, 0.035),
+      new THREE.Vector3(0, 0.110, 0.060),
+    ]);
+    const tailGeo = new THREE.TubeGeometry(curve, 32, 0.0065, 16, false);
+    // Taper the tail by scaling? TubeGeometry has constant radius; use small radius
+    const tail = new THREE.Mesh(tailGeo, pink);
+    g.add(tail);
+    // Tip: small rounded cap
+    const tipGeo = new THREE.SphereGeometry(0.0065, 16, 16);
+    const tip = new THREE.Mesh(tipGeo, pink);
+    tip.position.set(0, 0.110, 0.060);
+    g.add(tip);
+    // Buttons: two small light-pink dots on the tail
+    const btnGeo = new THREE.CylinderGeometry(0.0035, 0.0035, 0.002, 16);
+    const btnMat = new THREE.MeshStandardMaterial({color: 0xF8BBD0, roughness: 0.3});
+    const b1 = new THREE.Mesh(btnGeo, btnMat);
+    b1.position.set(0, 0.055, 0.011);
+    b1.rotation.x = Math.PI/2 - 0.2;
+    g.add(b1);
+    const b2 = new THREE.Mesh(btnGeo, btnMat);
+    b2.position.set(0, 0.068, 0.017);
+    b2.rotation.x = Math.PI/2 - 0.25;
+    g.add(b2);
+    return g;
+  }
+  function positionLush(lush){
+    // Place at vaginal area: base on pelvis bone.
+    // Model lies on back: -X=head, +X=feet, +Y=up(front of body), Z=lateral.
+    // Vaginal opening is toward feet (+X) from pelvis, on the body's front (+Y).
+    // Bulb goes in (down, -Y), tail curves out-up toward feet (+X).
+    const pb = bones['pelvis'];
+    if (!pb) { lush.visible = false; return; }
+    const pp = new THREE.Vector3();
+    pb.getWorldPosition(pp);
+    lush.position.set(pp.x + 0.070, pp.y - 0.028, pp.z);
+    // Local +Y is tail direction: tilt it toward +X (feet) so tail lies over pubic mound
+    lush.rotation.set(0, 0, -0.38);
+    lush.visible = true;
+  }
+
   function buildUI(){
     const pc = document.getElementById('presets');
     for(const name in PRESETS){
@@ -5437,6 +5494,13 @@
     }
     // setupDent(); // DISABLED: shader not working, using pose fix instead
     buildUI();
+    // Lush-like device (procedural) — toggleable
+    const lush = createLush();
+    scene.add(lush);
+    positionLush(lush);
+    document.getElementById('toggleLush').addEventListener('click', () => {
+      lush.visible = !lush.visible;
+    });
     const s = makeLabel('Hani', '#c9748a');
     s.position.set(-0.95, 1.05, 0);
     scene.add(s);
