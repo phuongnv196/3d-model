@@ -5027,7 +5027,51 @@
   const lushBasePos = new THREE.Vector3();
   let lushVibOn = false;
   let lushVibLevel = 1; // 1..3 intensity
-  const prevThighVib = {l: 0, r: 0};
+  // Labia vertex vibration: targeted quiver of vertices near vaginal opening
+  // Strategy: find vertices weighted to pelvis bone with lowest Y (crotch area in bind pose)
+  let labiaVerts = []; // {mesh, posAttr, index, base:Vector3, nrm:Vector3}
+  const labiaMeshes = new Set();
+  function setupLabiaVib(){
+    labiaVerts = [];
+    labiaMeshes.clear();
+    const v = new THREE.Vector3();
+    scene.traverse(o => {
+      if (!o.isSkinnedMesh || !o.skeleton) return;
+      const skel = o.skeleton;
+      const pelvisIdx = skel.bones.findIndex(b => b.name === 'pelvis');
+      if (pelvisIdx < 0) return;
+      const pos = o.geometry.attributes.position;
+      const nor = o.geometry.attributes.normal;
+      const sIdx = o.geometry.attributes.skinIndex;
+      const sWgt = o.geometry.attributes.skinWeight;
+      if (!pos || !nor || !sIdx || !sWgt) return;
+      // Pass 1: find min Y among pelvis-weighted verts
+      let minY = 1e9;
+      const candidates = [];
+      for (let i = 0; i < pos.count; i++){
+        let pw = 0;
+        const i0 = sIdx.getX(i), i1 = sIdx.getY(i), i2 = sIdx.getZ(i), i3 = sIdx.getW(i);
+        if (i0 === pelvisIdx) pw += sWgt.getX(i);
+        if (i1 === pelvisIdx) pw += sWgt.getY(i);
+        if (i2 === pelvisIdx) pw += sWgt.getZ(i);
+        if (i3 === pelvisIdx) pw += sWgt.getW(i);
+        if (pw < 0.35) continue;
+        const y = pos.getY(i);
+        candidates.push(i);
+        if (y < minY) minY = y;
+      }
+      // Pass 2: take verts within 3cm above minY = labia/crotch band
+      for (const i of candidates){
+        if (pos.getY(i) > minY + 0.035) continue;
+        labiaVerts.push({
+          mesh: o, posAttr: pos, index: i,
+          base: new THREE.Vector3().fromBufferAttribute(pos, i),
+          nrm: new THREE.Vector3().fromBufferAttribute(nor, i),
+        });
+        labiaMeshes.add(o);
+      }
+    });
+  }
   function updateLushVib(){
     const f = 2 * Math.PI * 28; // ~28Hz like a real vibrator
     if (lushVibOn){
@@ -5039,21 +5083,25 @@
           lushBasePos.z + Math.sin(simT * f * 0.97 + 2.1) * a
         );
       }
-      // Thigh tremor: makes the crotch/labia area visibly quiver
-      const ta = 0.007 * lushVibLevel;
-      for (const s of ['l', 'r']){
-        const b = bones[s + 'ThighBend'];
-        if (!b) continue;
-        b.rotation.z -= prevThighVib[s];
-        const v = Math.sin(simT * f + (s === 'l' ? 0 : Math.PI)) * ta;
-        b.rotation.z += v;
-        prevThighVib[s] = v;
+      // Labia quiver: displace vertices along their normals
+      const va = 0.0011 * lushVibLevel;
+      for (const lv of labiaVerts){
+        const off = Math.sin(simT * f + lv.index * 0.83) * va;
+        lv.posAttr.setXYZ(
+          lv.index,
+          lv.base.x + lv.nrm.x * off,
+          lv.base.y + lv.nrm.y * off,
+          lv.base.z + lv.nrm.z * off
+        );
       }
+      for (const m of labiaMeshes) m.geometry.attributes.position.needsUpdate = true;
     } else {
-      for (const s of ['l', 'r']){
-        const b = bones[s + 'ThighBend'];
-        if (b) b.rotation.z -= prevThighVib[s];
-        prevThighVib[s] = 0;
+      // Restore
+      if (labiaVerts.length){
+        for (const lv of labiaVerts){
+          lv.posAttr.setXYZ(lv.index, lv.base.x, lv.base.y, lv.base.z);
+        }
+        for (const m of labiaMeshes) m.geometry.attributes.position.needsUpdate = true;
       }
       if (lushObj) lushObj.position.copy(lushBasePos);
     }
@@ -5541,6 +5589,7 @@
     positionLush(lush);
     lushObj = lush;
     lushBasePos.copy(lush.position);
+    setupLabiaVib();
     document.getElementById('toggleLush').addEventListener('click', () => {
       lush.visible = !lush.visible;
     });
