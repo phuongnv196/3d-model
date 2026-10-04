@@ -64,6 +64,16 @@
     Cường độ rung: <span id="vibLevelVal">1</span>/3
     <input type="range" id="vibLevel" min="1" max="3" step="1" value="1" style="width:100%">
   </div>
+  <div style="margin-top:8px;font-size:12px">
+    <div>Lush vào/ra: <span id="lushYVal">0</span>mm</div>
+    <input type="range" id="lushY" min="-30" max="30" step="1" value="0" style="width:100%">
+    <div>Lush lên/xuống: <span id="lushXVal">0</span>mm</div>
+    <input type="range" id="lushX" min="-30" max="30" step="1" value="0" style="width:100%">
+    <div>Lush trái/phải: <span id="lushZVal">0</span>mm</div>
+    <input type="range" id="lushZ" min="-20" max="20" step="1" value="0" style="width:100%">
+  </div>
+  <textarea id="lushOut" readonly rows="2" style="width:100%;font-size:10px;font-family:monospace;margin-top:6px" placeholder='Vị trí lush sẽ hiện ở đây...'></textarea>
+  <button id="copyLush" class="preset" style="margin-top:4px">📋 Copy vị trí Lush</button>
 </div>
 <script>
 /**
@@ -5027,9 +5037,11 @@
   const lushBasePos = new THREE.Vector3();
   let lushVibOn = false;
   let lushVibLevel = 1; // 1..3 intensity
+  // Lush manual position offset (from sliders)
+  const lushOffset = {x: 0, y: 0, z: 0};
   // Labia vertex vibration: targeted quiver of vertices near vaginal opening
   // Strategy: find vertices weighted to pelvis bone with lowest Y (crotch area in bind pose)
-  let labiaVerts = []; // {mesh, posAttr, index, base:Vector3, nrm:Vector3}
+  let labiaVerts = []; // {mesh, posAttr, index, base:Vector3, nrm:Vector3, falloff}
   const labiaMeshes = new Set();
   function setupLabiaVib(){
     labiaVerts = [];
@@ -5067,43 +5079,60 @@
           mesh: o, posAttr: pos, index: i,
           base: new THREE.Vector3().fromBufferAttribute(pos, i),
           nrm: new THREE.Vector3().fromBufferAttribute(nor, i),
+          falloff: 1, // computed below
         });
         labiaMeshes.add(o);
       }
     });
+    // Compute falloff: 1 at cluster center, 0 at 4cm away (in bind-pose local space)
+    if (labiaVerts.length){
+      const centroid = new THREE.Vector3();
+      for (const lv of labiaVerts) centroid.add(lv.base);
+      centroid.divideScalar(labiaVerts.length);
+      for (const lv of labiaVerts){
+        const d = lv.base.distanceTo(centroid);
+        // smoothstep from 1 (d<=0.01) to 0 (d>=0.04)
+        const t = Math.max(0, Math.min(1, (d - 0.01) / 0.03));
+        lv.falloff = 1 - t * t * (3 - 2 * t);
+      }
+    }
   }
   function updateLushVib(){
     const f = 2 * Math.PI * 28; // ~28Hz like a real vibrator
+    // Base position includes manual slider offset
+    const bx = lushBasePos.x + lushOffset.x;
+    const by = lushBasePos.y + lushOffset.y;
+    const bz = lushBasePos.z + lushOffset.z;
+    // Insertion depth: 0 (at base) to 1 (3cm deeper). -Y = into body.
+    const insertion = Math.max(0, Math.min(1, -lushOffset.y / 0.03));
     if (lushVibOn){
       const a = 0.0012 * lushVibLevel;
       if (lushObj && lushObj.visible){
         lushObj.position.set(
-          lushBasePos.x + Math.sin(simT * f) * a,
-          lushBasePos.y + Math.sin(simT * f + 1.3) * a * 1.3,
-          lushBasePos.z + Math.sin(simT * f * 0.97 + 2.1) * a
+          bx + Math.sin(simT * f) * a,
+          by + Math.sin(simT * f + 1.3) * a * 1.3,
+          bz + Math.sin(simT * f * 0.97 + 2.1) * a
         );
       }
-      // Labia quiver: displace vertices along their normals
-      const va = 0.0011 * lushVibLevel;
+    } else {
+      if (lushObj) lushObj.position.set(bx, by, bz);
+    }
+    // Labia deformation: static bulge from insertion + dynamic quiver from vibration
+    if (labiaVerts.length){
+      const va = lushVibOn ? 0.0011 * lushVibLevel : 0;
+      const bulgeMax = 0.004; // 4mm max bulge at full insertion
       for (const lv of labiaVerts){
-        const off = Math.sin(simT * f + lv.index * 0.83) * va;
+        const bulge = insertion * bulgeMax * lv.falloff;
+        const quiver = va > 0 ? Math.sin(simT * f + lv.index * 0.83) * va * lv.falloff : 0;
+        const total = bulge + quiver;
         lv.posAttr.setXYZ(
           lv.index,
-          lv.base.x + lv.nrm.x * off,
-          lv.base.y + lv.nrm.y * off,
-          lv.base.z + lv.nrm.z * off
+          lv.base.x + lv.nrm.x * total,
+          lv.base.y + lv.nrm.y * total,
+          lv.base.z + lv.nrm.z * total
         );
       }
       for (const m of labiaMeshes) m.geometry.attributes.position.needsUpdate = true;
-    } else {
-      // Restore
-      if (labiaVerts.length){
-        for (const lv of labiaVerts){
-          lv.posAttr.setXYZ(lv.index, lv.base.x, lv.base.y, lv.base.z);
-        }
-        for (const m of labiaMeshes) m.geometry.attributes.position.needsUpdate = true;
-      }
-      if (lushObj) lushObj.position.copy(lushBasePos);
     }
   }
 
@@ -5602,6 +5631,33 @@
     document.getElementById('vibLevel').addEventListener('input', (e) => {
       lushVibLevel = parseInt(e.target.value);
       document.getElementById('vibLevelVal').textContent = lushVibLevel;
+    });
+    // Lush position sliders (mm -> meters)
+    const lushOut = document.getElementById('lushOut');
+    function updateLushOut(){
+      lushOut.value = JSON.stringify({lush: [
+        +lushOffset.x.toFixed(4),
+        +lushOffset.y.toFixed(4),
+        +lushOffset.z.toFixed(4)
+      ]});
+    }
+    function bindLushSlider(id, valId, key){
+      const el = document.getElementById(id);
+      el.addEventListener('input', () => {
+        const mm = parseInt(el.value);
+        document.getElementById(valId).textContent = mm;
+        lushOffset[key] = mm / 1000;
+        updateLushOut();
+      });
+    }
+    bindLushSlider('lushY', 'lushYVal', 'y');
+    bindLushSlider('lushX', 'lushXVal', 'x');
+    bindLushSlider('lushZ', 'lushZVal', 'z');
+    updateLushOut();
+    document.getElementById('copyLush').addEventListener('click', () => {
+      lushOut.select();
+      document.execCommand('copy');
+      if (navigator.clipboard) navigator.clipboard.writeText(lushOut.value).catch(()=>{});
     });
     const s = makeLabel('Hani', '#c9748a');
     s.position.set(-0.95, 1.05, 0);
